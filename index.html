@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VALORANT Tournament Map Selection</title>
+    <link rel="icon" href="LOGO.png" type="image/png">
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .coin-flip {
+            animation: coinFlip 2s ease-in-out;
+        }
+        
+        @keyframes coinFlip {
+            0% { transform: rotateY(0deg); }
+            50% { transform: rotateY(1800deg); }
+            100% { transform: rotateY(1800deg); }
+        }
+        
+        .wheel-spin {
+            animation: wheelSpin 3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        
+        @keyframes wheelSpin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(1440deg); }
+        }
+        
+        .glow-purple {
+            box-shadow: 0 0 20px rgba(107, 33, 168, 0.5);
+        }
+        
+        .map-card {
+            transition: all 0.3s ease;
+        }
+        
+        .map-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(107, 33, 168, 0.3);
+        }
+        
+        .banned {
+            opacity: 0.3;
+            filter: grayscale(100%);
+        }
+        
+        .selected {
+            border: 2px solid #6B21A8;
+            box-shadow: 0 0 15px rgba(107, 33, 168, 0.6);
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #000000 100%);
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'valorant-purple': '#6B21A8',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="dark">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const MAPS = ['CORRODE', 'ASCENT', 'BIND', 'SPLIT', 'SUNSET', 'HAVEN', 'LOTUS'];
+        const ROOMS = ['323', '325'];
+        const SIDES = ['DEFENDERS', 'ATTACKERS'];
+
+        const CoinFlip = ({ onResult, isFlipping, setIsFlipping }) => {
+            const [result, setResult] = useState(null);
+
+            const flipCoin = () => {
+                setIsFlipping(true);
+                const coinResult = Math.random() > 0.5 ? 'HEADS' : 'TAILS';
+                setResult(coinResult);
+                setTimeout(() => {
+                    onResult(coinResult);
+                    setIsFlipping(false);
+                }, 2000);
+            };
+
+            return (
+                <div className="text-center mb-8">
+                    <div className="mb-6">
+                        <div className={`w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-valorant-purple to-purple-800 flex items-center justify-center text-white font-bold text-lg shadow-lg ${isFlipping ? 'coin-flip' : ''}`}>
+                            {result || 'FLIP'}
+                        </div>
+                    </div>
+                    <button 
+                        onClick={flipCoin}
+                        disabled={isFlipping}
+                        className="bg-valorant-purple hover:bg-purple-800 text-white px-8 py-3 rounded-lg font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                    >
+                        {isFlipping ? 'Flipping...' : 'Flip Coin'}
+                    </button>
+                    {result && !isFlipping && (
+                        <p className="mt-4 text-valorant-purple font-semibold text-lg">
+                            Result: {result}
+                        </p>
+                    )}
+                </div>
+            );
+        };
+
+        const MapWheel = ({ availableMaps, onMapSelected, isSpinning, setIsSpinning }) => {
+            const [selectedMap, setSelectedMap] = useState(null);
+
+            const spinWheel = () => {
+                setIsSpinning(true);
+                const randomMap = availableMaps[Math.floor(Math.random() * availableMaps.length)];
+                setSelectedMap(randomMap);
+                setTimeout(() => {
+                    onMapSelected(randomMap);
+                    setIsSpinning(false);
+                }, 3000);
+            };
+
+            return (
+                <div className="text-center">
+                    <div className="mb-6">
+                        <div className={`w-64 h-64 mx-auto rounded-full border-4 border-valorant-purple bg-gray-900 flex items-center justify-center relative ${isSpinning ? 'wheel-spin' : ''}`}>
+                            <div className="grid grid-cols-1 gap-1 text-white font-bold text-sm">
+                                {availableMaps.map((map, index) => (
+                                    <div key={index} className="text-center px-2 py-1 bg-gray-800 rounded">
+                                        {map}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                    {selectedMap && !isSpinning && (
+                        <div className="text-2xl font-bold text-valorant-purple mb-4">
+                            Selected: {selectedMap}
+                        </div>
+                    )}
+                    <button 
+                        onClick={spinWheel}
+                        disabled={isSpinning || availableMaps.length === 0}
+                        className="bg-valorant-purple hover:bg-purple-800 text-white px-8 py-3 rounded-lg font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                    >
+                        {isSpinning ? 'Spinning...' : 'Spin Wheel'}
+                    </button>
+                </div>
+            );
+        };
+
+        const MapSelector = ({ maps, bannedMaps, selectedMaps = [], onMapClick, title, disabled = false }) => {
+            return (
+                <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-white mb-4">{title}</h3>
+                    <div className="grid grid-cols-4 gap-3">
+                        {maps.map(map => (
+                            <button
+                                key={map}
+                                onClick={() => !disabled && onMapClick(map)}
+                                disabled={disabled || bannedMaps.includes(map) || selectedMaps.includes(map)}
+                                className={`map-card p-4 rounded-lg text-white font-medium bg-gray-800 border-2 border-gray-700 ${
+                                    bannedMaps.includes(map) ? 'banned' : 
+                                    selectedMaps.includes(map) ? 'selected bg-valorant-purple border-valorant-purple' :
+                                    'hover:bg-gray-700 hover:border-valorant-purple'
+                                } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                            >
+                                {map}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const BO1Mode = () => {
+            const [team1Name, setTeam1Name] = useState('');
+            const [team2Name, setTeam2Name] = useState('');
+            const [coinResult, setCoinResult] = useState(null);
+            const [isFlipping, setIsFlipping] = useState(false);
+            const [team1Side, setTeam1Side] = useState('');
+            const [team2Side, setTeam2Side] = useState('');
+            const [team1Room, setTeam1Room] = useState('');
+            const [team2Room, setTeam2Room] = useState('');
+            const [bannedMaps, setBannedMaps] = useState([]);
+            const [currentBanningTeam, setCurrentBanningTeam] = useState(1);
+            const [finalMap, setFinalMap] = useState(null);
+            const [isSpinning, setIsSpinning] = useState(false);
+            const [phase, setPhase] = useState('setup');
+
+            const handleCoinResult = (result) => {
+                setCoinResult(result);
+            };
+
+            const handleSideSelection = (team, side) => {
+                if (team === 1) {
+                    setTeam1Side(side);
+                } else {
+                    setTeam2Side(side);
+                }
+            };
+
+            const handleMapBan = (map) => {
+                if (bannedMaps.length < 2) {
+                    setBannedMaps([...bannedMaps, map]);
+                    if (bannedMaps.length === 0) {
+                        setCurrentBanningTeam(2);
+                    } else {
+                        setPhase('spinning');
+                    }
+                }
+            };
+
+            const handleMapSelected = (map) => {
+                setFinalMap(map);
+                setPhase('complete');
+            };
+
+            const startBanning = () => {
+                if (team1Name && team2Name && team1Room && team2Room && team1Side && team2Side) {
+                    setPhase('banning');
+                }
+            };
+
+            const availableMaps = MAPS.filter(map => !bannedMaps.includes(map));
+
+            return (
+                <div className="space-y-8">
+                    {phase === 'setup' && (
+                        <>
+                            <CoinFlip 
+                                onResult={handleCoinResult} 
+                                isFlipping={isFlipping}
+                                setIsFlipping={setIsFlipping}
+                            />
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-white font-semibold mb-2">Team 1 Name</label>
+                                    <input
+                                        type="text"
+                                        value={team1Name}
+                                        onChange={(e) => setTeam1Name(e.target.value.toUpperCase())}
+                                        className="w-full p-4 rounded-lg bg-gray-800 text-white border-2 border-gray-700 focus:border-valorant-purple focus:outline-none transition-colors"
+                                        placeholder="ENTER TEAM NAME"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-white font-semibold mb-2">Team 2 Name</label>
+                                    <input
+                                        type="text"
+                                        value={team2Name}
+                                        onChange={(e) => setTeam2Name(e.target.value.toUpperCase())}
+                                        className="w-full p-4 rounded-lg bg-gray-800 text-white border-2 border-gray-700 focus:border-valorant-purple focus:outline-none transition-colors"
+                                        placeholder="ENTER TEAM NAME"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-white font-semibold mb-2">Team 1 Side</label>
+                                    <select
+                                        value={team1Side}
+                                        onChange={(e) => handleSideSelection(1, e.target.value)}
+                                        className="w-full p-4 rounded-lg bg-gray-800 text-white border-2 border-gray-700 focus:border-valorant-purple focus:outline-none transition-colors"
+                                    >
+                                        <option value="">Select Side</option>
+                                        {SIDES.map(side => (
+                                            <option key={side} value={side} disabled={team2Side === side}>
+                                                {side}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-white font-semibold mb-2">Team 2 Side</label>
+                                    <select
+                                        value={team2Side}
+                                        onChange={(e) => handleSideSelection(2, e.target.value)}
+                                        className="w-full p-4 rounded-lg bg-gray-800 text-white border-2 border-gray-700 focus:border-valorant-purple focus:outline-none transition-colors"
+                                    >
+                                        <option value="">Select Side</option>
+                                        {SIDES.map(side => (
+                                            <option key={side} value={side} disabled={team1Side === side}>
+                                                {side}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-white font-semibold mb-2">Team 1 Room</label>
+                                    <select
+                                        value={team1Room}
+                                        onChange={(e) => setTeam1Room(e.target.value)}
+                                        className="w-full p-4 rounded-lg bg-gray-800 text-white border-2 border-gray-700 focus:border-valorant-purple focus:outline-none transition-colors"
+                                    >
+                                        <option value="">Select Room</option>
+                                        {ROOMS.map(room => (
+                                            <option key={room} value={room} disabled={team2Room === room}>
+                                                Room {room}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-white font-semibold mb-2">Team 2 Room</label>
+                                    <select
+                                        value={team2Room}
+                                        onChange={(e) => setTeam2Room(e.target.value)}
+                                        className="w-full p-4 rounded-lg bg-gray-800 text-white border-2 border-gray-700 focus:border-valorant-purple focus:outline-none transition-colors"
+                                    >
+                                        <option value="">Select Room</option>
+                                        {ROOMS.map(room => (
+                                            <option key={room} value={room} disabled={team1Room === room}>
+                                                Room {room}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={startBanning}
+                                disabled={!team1Name || !team2Name || !team1Room || !team2Room || !team1Side || !team2Side}
+                                className="w-full bg-valorant-purple hover:bg-purple-800 text-white py-4 rounded-lg font-semibold text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                            >
+                                START MAP BANNING
+                            </button>
+                        </>
+                    )}
+
+                    {phase === 'banning' && (
+                        <>
+                            <div className="text-center mb-6">
+                                <h2 className="text-3xl font-bold text-white mb-2">
+                                    Map Banning Phase
+                                </h2>
+                                <p className="text-valorant-purple text-xl font-semibold">
+                                    {currentBanningTeam === 1 ? team1Name : team2Name} - Ban a Map
+                                </p>
+                            </div>
+                            
+                            <MapSelector
+                                maps={MAPS}
+                                bannedMaps={bannedMaps}
+                                onMapClick={handleMapBan}
+                                title="Select Map to Ban"
+                            />
+
+                            <div className="bg-gray-800 p-4 rounded-lg">
+                                <h4 className="text-white font-semibold mb-2">Banned Maps:</h4>
+                                <p className="text-gray-300">{bannedMaps.length > 0 ? bannedMaps.join(', ') : 'None'}</p>
+                            </div>
+                        </>
+                    )}
+
+                    {phase === 'spinning' && (
+                        <>
+                            <div className="text-center mb-6">
+                                <h2 className="text-3xl font-bold text-white mb-2">
+                                    Map Selection
+                                </h2>
+                                <p className="text-valorant-purple text-xl">
+                                    Spinning for final map...
+                                </p>
+                            </div>
+                            
+                            <MapWheel
+                                availableMaps={availableMaps}
+                                onMapSelected={handleMapSelected}
+                                isSpinning={isSpinning}
+                                setIsSpinning={setIsSpinning}
+                            />
+                        </>
+                    )}
+
+                    {phase === 'complete' && (
+                        <div className="bg-gray-800 p-8 rounded-lg border-2 border-valorant-purple glow-purple">
+                            <h2 className="text-3xl font-bold text-white mb-6 text-center">MATCH SUMMARY</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div>
+                                    <h3 className="text-xl font-semibold text-valorant-purple mb-4">TEAM INFORMATION</h3>
+                                    <div className="space-y-2 text-white">
+                                        <p><span className="font-semibold">Team 1:</span> {team1Name} ({team1Side}) - Room {team1Room}</p>
+                                        <p><span className="font-semibold">Team 2:</span> {team2Name} ({team2Side}) - Room {team2Room}</p>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-semibold text-valorant-purple mb-4">MAP INFORMATION</h3>
+                                    <div className="space-y-2 text-white">
+                                        <p><span className="font-semibold">Final Map:</span> <span className="text-valorant-purple font-bold">{finalMap}</span></p>
+                                        <p><span className="font-semibold">Banned Maps:</span> {bannedMaps.join(', ')}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const BO3Mode = () => {
+            const [team1Name, setTeam1Name] = useState('');
+            const [team2Name, setTeam2Name] = useState('');
+            const [team1Room, setTeam1Room] = useState('');
+            const [team2Room, setTeam2Room] = useState('');
+            const [coinResult, setCoinResult] = useState(null);
+            const [isFlipping, setIsFlipping] = useState(false);
+            const [phase, setPhase] = useState('setup');
+            const [bannedMaps, setBannedMaps] = useState([]);
+            const [selectedMaps, setSelectedMaps] = useState([]);
+            const [mapSides, setMapSides] = useState({});
+            const [currentStep, setCurrentStep] = useState(0);
+
+            const steps = [
+                { action: 'ban', team: 1, description: 'Team 1 Ban' },
+                { action: 'ban', team: 2, description: 'Team 2 Ban' },
+                { action: 'pick', team: 1, description: 'Team 1 Pick Map 1' },
+                { action: 'side', team: 2, description: 'Team 2 Choose Side for Map 1', mapIndex: 0 },
+                { action: 'pick', team: 2, description: 'Team 2 Pick Map 2' },
+                { action: 'side', team: 1, description: 'Team 1 Choose Side for Map 2', mapIndex: 1 },
+                { action: 'ban', team: 1, description: 'Team 1 Ban' },
+                { action: 'ban', team: 2, description: 'Team 2 Ban' },
+                { action: 'side', team: 1, description: 'Team 1 Choose Side for Map 3', mapIndex: 2 }
+            ];
+
+            const handleCoinResult = (result) => {
+                setCoinResult(result);
+            };
+
+            const startDrafting = () => {
+                if (team1Name && team2Name && team1Room && team2Room) {
+                    setPhase('drafting');
+                }
+            };
+
+            const handleMapAction = (map) => {
+                const step = steps[currentStep];
+                
+                if (step.action === 'ban') {
+                    setBannedMaps([...bannedMaps, map]);
+                } else if (step.action === 'pick') {
+                    setSelectedMaps([...selectedMaps, map]);
+                }
+                
+                // Auto-select final map after second round of bans
+                if (currentStep === 7) {
+                    const finalMap = MAPS.filter(m => !bannedMaps.includes(m) && !selectedMaps.includes(m) && m !== map)[0];
+                    setSelectedMaps(prev => [...prev, finalMap]);
+                }
+                
+                setCurrentStep(currentStep + 1);
+                
+                if (currentStep === 8) {
+                    setPhase('complete');
+                }
+            };
+
+            const handleSideSelection = (side) => {
+                const step = steps[currentStep];
+                const newMapSides = { ...mapSides };
+                newMapSides[step.mapIndex] = {
+                    [`team${step.team}`]: side,
+                    [`team${step.team === 1 ? 2 : 1}`]: side === 'ATTACKERS' ? 'DEFENDERS' : 'ATTACKERS'
+                };
+                setMapSides(newMapSides);
+                setCurrentStep(currentStep + 1);
+                
+                if (currentStep === 8) {
+                    setPhase('complete');
+                }
+            };
+
+            const getCurrentTeamName = () => {
+                const step = steps[currentStep];
+                return step.team === 1 ? team1Name : team2Name;
+            };
+
+            const availableMaps = MAPS.filter(map => !bannedMaps.includes(map) && !selectedMaps.includes(map));
+
+            return (
+                <div className="space-y-8">
+                    {phase === 'setup' && (
+                        <>
+                            <CoinFlip 
+                                onResult={handleCoinResult} 
+                                isFlipping={isFlipping}
+                                setIsFlipping={setIsFlipping}
+                            />
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-white font-semibold mb-2">Team 1 Name</label>
+                                    <input
+                                        type="text"
+                                        value={team1Name}
+                                        onChange={(e) => setTeam1Name(e.target.value.toUpperCase())}
+                                        className="w-full p-4 rounded-lg bg-gray-800 text-white border-2 border-gray-700 focus:border-valorant-purple focus:outline-none transition-colors"
+                                        placeholder="ENTER TEAM NAME"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-white font-semibold mb-2">Team 2 Name</label>
+                                    <input
+                                        type="text"
+                                        value={team2Name}
+                                        onChange={(e) => setTeam2Name(e.target.value.toUpperCase())}
+                                        className="w-full p-4 rounded-lg bg-gray-800 text-white border-2 border-gray-700 focus:border-valorant-purple focus:outline-none transition-colors"
+                                        placeholder="ENTER TEAM NAME"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-white font-semibold mb-2">Team 1 Room</label>
+                                    <select
+                                        value={team1Room}
+                                        onChange={(e) => setTeam1Room(e.target.value)}
+                                        className="w-full p-4 rounded-lg bg-gray-800 text-white border-2 border-gray-700 focus:border-valorant-purple focus:outline-none transition-colors"
+                                    >
+                                        <option value="">Select Room</option>
+                                        {ROOMS.map(room => (
+                                            <option key={room} value={room} disabled={team2Room === room}>
+                                                Room {room}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-white font-semibold mb-2">Team 2 Room</label>
+                                    <select
+                                        value={team2Room}
+                                        onChange={(e) => setTeam2Room(e.target.value)}
+                                        className="w-full p-4 rounded-lg bg-gray-800 text-white border-2 border-gray-700 focus:border-valorant-purple focus:outline-none transition-colors"
+                                    >
+                                        <option value="">Select Room</option>
+                                        {ROOMS.map(room => (
+                                            <option key={room} value={room} disabled={team1Room === room}>
+                                                Room {room}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={startDrafting}
+                                disabled={!team1Name || !team2Name || !team1Room || !team2Room}
+                                className="w-full bg-valorant-purple hover:bg-purple-800 text-white py-4 rounded-lg font-semibold text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                            >
+                                START BO3 DRAFT
+                            </button>
+                        </>
+                    )}
+
+                    {phase === 'drafting' && currentStep < 9 && (
+                        <>
+                            <div className="text-center mb-6">
+                                <h2 className="text-3xl font-bold text-white mb-2">
+                                    BO3 Draft Phase
+                                </h2>
+                                <p className="text-valorant-purple text-xl font-semibold">
+                                    {steps[currentStep].description}
+                                </p>
+                                <p className="text-gray-300 mt-2">
+                                    {getCurrentTeamName()} - Step {currentStep + 1} of 9
+                                </p>
+                            </div>
+
+                            {steps[currentStep].action === 'side' ? (
+                                <div className="text-center">
+                                    <h3 className="text-xl text-white mb-6">
+                                        Choose side for <span className="text-valorant-purple font-bold">{selectedMaps[steps[currentStep].mapIndex]}</span>
+                                    </h3>
+                                    <div className="flex gap-6 justify-center">
+                                        <button
+                                            onClick={() => handleSideSelection('ATTACKERS')}
+                                            className="bg-red-600 hover:bg-red-700 px-8 py-4 rounded-lg text-white font-semibold text-lg transition-all shadow-lg"
+                                        >
+                                            ATTACKERS
+                                        </button>
+                                        <button
+                                            onClick={() => handleSideSelection('DEFENDERS')}
+                                            className="bg-blue-600 hover:bg-blue-700 px-8 py-4 rounded-lg text-white font-semibold text-lg transition-all shadow-lg"
+                                        >
+                                            DEFENDERS
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <MapSelector
+                                        maps={availableMaps}
+                                        bannedMaps={[]}
+                                        selectedMaps={[]}
+                                        onMapClick={handleMapAction}
+                                        title={`Available Maps (${availableMaps.length})`}
+                                    />
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="bg-gray-800 p-4 rounded-lg">
+                                            <h4 className="text-white font-semibold mb-2">Banned Maps:</h4>
+                                            <p className="text-gray-300">{bannedMaps.length > 0 ? bannedMaps.join(', ') : 'None'}</p>
+                                        </div>
+                                        <div className="bg-gray-800 p-4 rounded-lg">
+                                            <h4 className="text-white font-semibold mb-2">Selected Maps:</h4>
+                                            <p className="text-gray-300">{selectedMaps.length > 0 ? selectedMaps.join(', ') : 'None'}</p>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </>
+                    )}
+
+                    {phase === 'complete' && (
+                        <div className="bg-gray-800 p-8 rounded-lg border-2 border-valorant-purple glow-purple">
+                            <h2 className="text-3xl font-bold text-white mb-6 text-center">BO3 MATCH SUMMARY</h2>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                                <div>
+                                    <h3 className="text-xl font-semibold text-valorant-purple mb-4">TEAM INFORMATION</h3>
+                                    <div className="space-y-2 text-white">
+                                        <p><span className="font-semibold">Team 1:</span> {team1Name} - Room {team1Room}</p>
+                                        <p><span className="font-semibold">Team 2:</span> {team2Name} - Room {team2Room}</p>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-semibold text-valorant-purple mb-4">BANNED MAPS</h3>
+                                    <p className="text-white">{bannedMaps.join(', ')}</p>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h3 className="text-xl font-semibold text-valorant-purple mb-4">MAP LINEUP</h3>
+                                <div className="space-y-4">
+                                    {selectedMaps.map((map, index) => (
+                                        <div key={index} className="bg-gray-700 p-4 rounded-lg">
+                                            <div className="flex flex-col md:flex-row md:justify-between md:items-center">
+                                                <span className="text-white font-bold text-lg mb-2 md:mb-0">
+                                                    Map {index + 1}: <span className="text-valorant-purple">{map}</span>
+                                                </span>
+                                                <div className="text-sm">
+                                                    {mapSides[index] && (
+                                                        <div className="flex flex-col md:flex-row gap-2 md:gap-4">
+                                                            <span className="text-red-400 font-semibold">
+                                                                {team1Name}: {mapSides[index].team1}
+                                                            </span>
+                                                            <span className="text-blue-400 font-semibold">
+                                                                {team2Name}: {mapSides[index].team2}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('BO1');
+
+            return (
+                <div className="min-h-screen gradient-bg">
+                    <div className="container mx-auto px-4 py-8">
+                        <div className="text-center mb-12">
+                            <img 
+                                src="/LOGO.png" 
+                                alt="VALORANT Logo" 
+                                className="w-48 h-50 mx-auto mb-4"
+                            />
+                            <p className="text-2xl text-valorant-purple font-semibold">TOURNAMENT MAP SELECTION</p>
+                        </div>
+
+
+                        <div className="flex justify-center mb-8">
+                            <div className="bg-gray-800 p-2 rounded-lg border-2 border-gray-700">
+                                <button
+                                    onClick={() => setActiveTab('BO1')}
+                                    className={`px-8 py-3 rounded-lg font-semibold text-lg transition-all ${
+                                        activeTab === 'BO1' 
+                                            ? 'bg-valorant-purple text-white shadow-lg' 
+                                            : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                                    }`}
+                                >
+                                    BO1 MODE
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('BO3')}
+                                    className={`px-8 py-3 rounded-lg font-semibold text-lg transition-all ${
+                                        activeTab === 'BO3' 
+                                            ? 'bg-valorant-purple text-white shadow-lg' 
+                                            : 'text-gray-400 hover:text-white hover:bg-gray-700'
+                                    }`}
+                                >
+                                    BO3 MODE
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="max-w-6xl mx-auto bg-gray-900/80 backdrop-blur-sm rounded-xl p-8 border-2 border-gray-700">
+                            {activeTab === 'BO1' ? <BO1Mode /> : <BO3Mode />}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'964d0c8c93ff2721',t:'MTc1MzQ2MTEwMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
